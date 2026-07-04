@@ -12,7 +12,7 @@ class BoardScreen extends StatefulWidget {
 }
 
 class _BoardScreenState extends State<BoardScreen> {
-  List<Row> _orders = [];
+  List<Json> _orders = [];
   bool _loading = true;
   String? _error;
   String _filter = 'الكل';
@@ -40,8 +40,8 @@ class _BoardScreenState extends State<BoardScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  List<Row> _allItems() => _orders.expand<Row>((o) {
-        final items = (o['order_items'] as List?)?.cast<Row>() ?? const [];
+  List<Json> _allItems() => _orders.expand<Json>((o) {
+        final items = (o['order_items'] as List?)?.cast<Json>() ?? const [];
         return items.map((it) => {
               ...it,
               'order_id': o['id'],
@@ -50,8 +50,8 @@ class _BoardScreenState extends State<BoardScreen> {
             });
       }).toList();
 
-  String _displayLabel(Row it) => _advanced[it['id']] ?? itemProgress(it).currentLabel;
-  bool _ticked(Row it) => _advanced.containsKey(it['id']);
+  String _displayLabel(Json it) => _advanced[it['id']] ?? itemProgress(it).currentLabel;
+  bool _ticked(Json it) => _advanced.containsKey(it['id']);
 
   List<String> _chips() {
     final labels = _allItems().map(_displayLabel).toSet();
@@ -60,10 +60,10 @@ class _BoardScreenState extends State<BoardScreen> {
     return ['الكل', ...head, ...rest];
   }
 
-  List<Row> _filtered() =>
+  List<Json> _filtered() =>
       _filter == 'الكل' ? _allItems() : _allItems().where((it) => _displayLabel(it) == _filter).toList();
 
-  Future<void> _advance(Row it) async {
+  Future<void> _advance(Json it) async {
     final ip = itemProgress(it);
     final cur = ip.current;
     if (cur == null) return;
@@ -74,7 +74,9 @@ class _BoardScreenState extends State<BoardScreen> {
       _advanced[it['id'] as int] = prev;
       setState(() {});
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذّر التحديث: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذّر التحديث: $e')));
+      }
     }
   }
 
@@ -142,7 +144,7 @@ class _BoardScreenState extends State<BoardScreen> {
     );
   }
 
-  Widget _itemCard(Row it) {
+  Widget _itemCard(Json it) {
     final ip = itemProgress(it);
     final ticked = _ticked(it);
     final images = (it['products']?['images'] as List?)?.cast<String>() ?? const [];

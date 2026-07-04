@@ -2,6 +2,13 @@
 const KEY = 'nanosh_cart';
 const listeners = new Set();
 
+// ponytail: crypto.randomUUID is only available in secure contexts (localhost/https).
+// Fall back to a simple timestamp+random id for local IP http testing.
+function uuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 function read() {
   try { return migrate(JSON.parse(localStorage.getItem(KEY)) || []); }
   catch { return []; }
@@ -11,7 +18,7 @@ function write(items) {
   listeners.forEach((fn) => fn(items));
 }
 // ponytail: legacy carts lack line ids; assign them once so the UI can target unique lines
-function migrate(items) { return items.map((i) => (i.id ? i : { ...i, id: crypto.randomUUID() })); }
+function migrate(items) { return items.map((i) => (i.id ? i : { ...i, id: uuid() })); }
 
 export const onCartChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 export const getCart = () => read();
@@ -34,7 +41,7 @@ export function addConfigured(product, { size, note, qty }) {
     match.qty += qty > 0 ? qty : 1;
   } else {
     items.push({
-      id: crypto.randomUUID(),
+      id: uuid(),
       productId: product.id,
       name: product.name_ar,
       image: (product.images || [])[0] || '',

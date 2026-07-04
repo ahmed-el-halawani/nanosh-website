@@ -7,7 +7,7 @@ import '../data/api.dart';
 // in place and calls [onChanged] so the caller can refresh.
 Future<void> openItemSheet(
   BuildContext context,
-  Row item, {
+  Json item, {
   String? customer,
   String? phone,
   VoidCallback? onChanged,
@@ -24,7 +24,7 @@ Future<void> openItemSheet(
 }
 
 class _ItemSheet extends StatefulWidget {
-  final Row item;
+  final Json item;
   final String? customer, phone;
   final VoidCallback? onChanged;
   const _ItemSheet({required this.item, this.customer, this.phone, this.onChanged});
@@ -37,12 +37,12 @@ class _ItemSheetState extends State<_ItemSheet> {
   final _addCtl = TextEditingController();
   bool _busy = false;
 
-  List<Row> get _steps {
-    widget.item['order_item_steps'] ??= <Row>[];
-    return (widget.item['order_item_steps'] as List).cast<Row>();
+  List<Json> get _steps {
+    widget.item['order_item_steps'] ??= <Json>[];
+    return (widget.item['order_item_steps'] as List).cast<Json>();
   }
 
-  List<Row> get _sorted =>
+  List<Json> get _sorted =>
       _steps.toList()..sort((a, b) => (a['sort'] as int? ?? 0).compareTo(b['sort'] as int? ?? 0));
 
   @override
@@ -56,7 +56,7 @@ class _ItemSheetState extends State<_ItemSheet> {
     widget.onChanged?.call();
   }
 
-  Future<void> _toggle(Row s, bool v) async {
+  Future<void> _toggle(Json s, bool v) async {
     try {
       await updateItemStep(s['id'] as int, {'done': v});
       s['done'] = v;
@@ -66,7 +66,7 @@ class _ItemSheetState extends State<_ItemSheet> {
     }
   }
 
-  Future<void> _move(Row s, bool up) async {
+  Future<void> _move(Json s, bool up) async {
     final sorted = _sorted;
     final idx = sorted.indexWhere((x) => x['id'] == s['id']);
     final swap = up ? (idx > 0 ? sorted[idx - 1] : null) : (idx < sorted.length - 1 ? sorted[idx + 1] : null);
@@ -84,7 +84,7 @@ class _ItemSheetState extends State<_ItemSheet> {
     }
   }
 
-  Future<void> _delete(Row s) async {
+  Future<void> _delete(Json s) async {
     try {
       await deleteItemStep(s['id'] as int);
       _steps.removeWhere((x) => x['id'] == s['id']);
@@ -210,7 +210,7 @@ class _ItemSheetState extends State<_ItemSheet> {
     );
   }
 
-  Widget _stepRow(Row s, int idx, int count) {
+  Widget _stepRow(Json s, int idx, int count) {
     final done = s['done'] == true;
     return Container(
       decoration: const BoxDecoration(

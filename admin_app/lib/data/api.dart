@@ -4,23 +4,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Thin data layer mirroring the web app's src/api.js (admin subset).
 SupabaseClient get _db => Supabase.instance.client;
 
-typedef Row = Map<String, dynamic>;
+typedef Json = Map<String, dynamic>;
 
-Future<Row?> getProfile(String userId) async {
+Future<Json?> getProfile(String userId) async {
   return await _db.from('profiles').select('*').eq('id', userId).maybeSingle();
 }
 
 // ---------------- Products ----------------
-Future<List<Row>> getProducts() async {
+Future<List<Json>> getProducts() async {
   final data = await _db.from('products').select('*').order('sort');
-  return (data as List).cast<Row>();
+  return (data as List).cast<Json>();
 }
 
-Future<Row> createProductRow(Row row) async {
+Future<Json> createProductRow(Json row) async {
   return await _db.from('products').insert(row).select().single();
 }
 
-Future<void> updateProductRow(String id, Row row) async {
+Future<void> updateProductRow(String id, Json row) async {
   await _db.from('products').update(row).eq('id', id);
 }
 
@@ -41,20 +41,20 @@ Future<String> uploadProductImage(Uint8List bytes, String ext) async {
 }
 
 // ---------------- Orders ----------------
-Future<List<Row>> getAllOrders() async {
+Future<List<Json>> getAllOrders() async {
   final data = await _db
       .from('orders')
       .select('*, order_items(*, products(images), order_item_steps(*)), order_steps(*), profiles(name, phone)')
       .order('created_at', ascending: false);
-  return (data as List).cast<Row>();
+  return (data as List).cast<Json>();
 }
 
 // ---------------- Order-level steps ----------------
-Future<void> updateOrderStep(int stepId, Row patch) async {
+Future<void> updateOrderStep(int stepId, Json patch) async {
   await _db.from('order_steps').update(patch).eq('id', stepId);
 }
 
-Future<Row> addOrderStep(int orderId, String label, int sort, String area) async {
+Future<Json> addOrderStep(int orderId, String label, int sort, String area) async {
   return await _db
       .from('order_steps')
       .insert({'order_id': orderId, 'label': label, 'area': area, 'sort': sort, 'done': false})
@@ -67,11 +67,11 @@ Future<void> deleteOrderStep(int stepId) async {
 }
 
 // ---------------- Per-item steps ----------------
-Future<void> updateItemStep(int stepId, Row patch) async {
+Future<void> updateItemStep(int stepId, Json patch) async {
   await _db.from('order_item_steps').update(patch).eq('id', stepId);
 }
 
-Future<Row> addItemStep(int orderItemId, String label, int sort, String? key) async {
+Future<Json> addItemStep(int orderItemId, String label, int sort, String? key) async {
   return await _db
       .from('order_item_steps')
       .insert({'order_item_id': orderItemId, 'label': label, 'key': key, 'sort': sort, 'done': false})

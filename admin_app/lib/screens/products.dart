@@ -12,7 +12,7 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-  late Future<List<Row>> _future;
+  late Future<List<Json>> _future;
 
   @override
   void initState() {
@@ -22,14 +22,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   void _reload() => setState(() => _future = getProducts());
 
-  Future<void> _openForm([Row? product]) async {
+  Future<void> _openForm([Json? product]) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ProductFormPage(product: product)),
     );
     if (saved == true) _reload();
   }
 
-  Future<void> _delete(Row p) async {
+  Future<void> _delete(Json p) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -56,7 +56,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         icon: const Icon(Icons.add),
         label: const Text('إضافة منتج'),
       ),
-      body: FutureBuilder<List<Row>>(
+      body: FutureBuilder<List<Json>>(
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
@@ -80,7 +80,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _productCard(Row p) {
+  Widget _productCard(Json p) {
     final images = (p['images'] as List?)?.cast<String>() ?? const [];
     return Container(
       decoration: BoxDecoration(
@@ -125,7 +125,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
 // ------------------------- Add / Edit form -------------------------
 class ProductFormPage extends StatefulWidget {
-  final Row? product;
+  final Json? product;
   const ProductFormPage({super.key, this.product});
   @override
   State<ProductFormPage> createState() => _ProductFormPageState();
@@ -140,7 +140,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
   bool _saving = false;
   String? _error;
 
-  Row get _p => widget.product ?? const {};
+  Json get _p => widget.product ?? const {};
 
   @override
   void initState() {

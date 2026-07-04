@@ -1,14 +1,13 @@
 import 'constants.dart';
+import 'api.dart' show Json;
 
-typedef Row = Map<String, dynamic>;
+List<Json> _steps(dynamic v) => ((v as List?) ?? const []).cast<Json>();
 
-List<Row> _steps(dynamic v) => ((v as List?) ?? const []).cast<Row>();
-
-int _sortCmp(Row a, Row b) => (a['sort'] as int? ?? 0).compareTo(b['sort'] as int? ?? 0);
+int _sortCmp(Json a, Json b) => (a['sort'] as int? ?? 0).compareTo(b['sort'] as int? ?? 0);
 
 class AreaProgress {
   final AreaDef def;
-  final List<Row> steps;
+  final List<Json> steps;
   final int done;
   final int total;
   final bool complete;
@@ -27,14 +26,20 @@ class OrderProgress {
 }
 
 // Order-level status derived from area-grouped order_steps.
-OrderProgress orderProgress(Row order) {
+OrderProgress orderProgress(Json order) {
   final all = _steps(order['order_steps']);
   final areas = orderAreas.map((a) {
     final steps = all.where((s) => (s['area'] ?? 'received') == a.key).toList()..sort(_sortCmp);
     final done = steps.where((s) => s['done'] == true).length;
     return AreaProgress(a, steps, done, steps.length, steps.isNotEmpty && done == steps.length);
   }).toList();
-  final current = areas.where((a) => !a.complete).cast<AreaProgress?>().firstWhere((_) => true, orElse: () => null);
+  AreaProgress? current;
+  for (final a in areas) {
+    if (!a.complete) {
+      current = a;
+      break;
+    }
+  }
   final key = current?.key ?? 'done';
   return OrderProgress(
     areas,
@@ -46,8 +51,8 @@ OrderProgress orderProgress(Row order) {
 }
 
 class ItemProgress {
-  final List<Row> steps;
-  final Row? current;
+  final List<Json> steps;
+  final Json? current;
   final String currentLabel;
   final int done;
   final int total;
@@ -56,9 +61,9 @@ class ItemProgress {
 }
 
 // Per-item linear progress from order_item_steps.
-ItemProgress itemProgress(Row item) {
+ItemProgress itemProgress(Json item) {
   final steps = _steps(item['order_item_steps']).toList()..sort(_sortCmp);
-  Row? current;
+  Json? current;
   for (final s in steps) {
     if (s['done'] != true) {
       current = s;
