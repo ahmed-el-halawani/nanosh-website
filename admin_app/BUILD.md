@@ -24,8 +24,9 @@ flutter build apk --release \
 ## GitHub Actions (`.github/workflows/mobile.yml`)
 Every **push to `main`** (or a manual run) auto-versions and publishes a GitHub **Release**:
 - version = `1.0.<run_number>`, tag `v1.0.<run_number>` (passed to the build as build-name/number).
-- builds the **APK** + **AAB** (Android) and an **unsigned IPA** (iOS, `--no-codesign` then packaged).
-- creates the release with auto-generated notes and attaches `*.apk`, `*.aab`, and `*-unsigned.ipa`.
+- **creates the release first** (empty, with auto-generated notes),
+- then builds in parallel and **uploads onto that release**: the **APK** + **AAB** (Android) and an
+  **unsigned IPA** (iOS, `--no-codesign` then packaged) → `*.apk`, `*.aab`, `*-unsigned.ipa`.
 
 The IPA is **unsigned** (no Apple account yet) — it will not install on a device until iOS signing is
 added; it's produced so the release is complete and ready to swap to a signed `.ipa` later.

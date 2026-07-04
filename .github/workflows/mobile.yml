@@ -1,12 +1,12 @@
 name: Release (Flutter)
 
-# Every push to main builds APK + (unsigned) IPA and publishes a versioned GitHub Release.
+# Every push to main: create a versioned release first, then build the APK and
+# (unsigned) IPA and upload them onto that release.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Don't let overlapping pushes race on the same release.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -21,30 +21,56 @@ env:
     --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
 jobs:
-  # ---------- generate the version / tag ----------
+  # ---------- 1. generate the version / tag ----------
   version:
     runs-on: ubuntu-latest
     outputs:
       name: ${{ steps.v.outputs.name }}   # e.g. 1.0.42
-      code: ${{ steps.v.outputs.code }}   # e.g. 42  (monotonic build number)
+      code: ${{ steps.v.outputs.code }}   # e.g. 42
       tag: ${{ steps.v.outputs.tag }}     # e.g. v1.0.42
     steps:
       - id: v
         run: |
           CODE=${{ github.run_number }}
           NAME="1.0.$CODE"
-          echo "name=$NAME"      >> "$GITHUB_OUTPUT"
-          echo "code=$CODE"      >> "$GITHUB_OUTPUT"
-          echo "tag=v$NAME"      >> "$GITHUB_OUTPUT"
-          echo "Version $NAME (build $CODE)"
+          {
+            echo "name=$NAME"
+            echo "code=$CODE"
+            echo "tag=v$NAME"
+          } >> "$GITHUB_OUTPUT"
 
-  # ---------- Android APK + AAB ----------
-  android:
+  # ---------- 2. create the (empty) release first ----------
+  create_release:
     needs: version
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - name: Create release if missing
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists."
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+
+  # ---------- 3a. Android APK + AAB → upload to release ----------
+  android:
+    needs: [version, create_release]
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: admin_app
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+      NAME: ${{ needs.version.outputs.name }}
+      CODE: ${{ needs.version.outputs.code }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -57,28 +83,28 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Build APK
-        run: flutter build apk --release --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.code }} ${{ env.DART_DEFINES }}
-      - name: Build App Bundle
-        run: flutter build appbundle --release --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.code }} ${{ env.DART_DEFINES }}
-      - name: Rename artifacts
+      - name: Build APK + AAB
         run: |
+          flutter build apk --release --build-name=$NAME --build-number=$CODE $DART_DEFINES
+          flutter build appbundle --release --build-name=$NAME --build-number=$CODE $DART_DEFINES
           mkdir -p out
-          cp build/app/outputs/flutter-apk/app-release.apk "out/nanosh-admin-${{ needs.version.outputs.name }}.apk"
-          cp build/app/outputs/bundle/release/app-release.aab "out/nanosh-admin-${{ needs.version.outputs.name }}.aab"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android
-          path: admin_app/out/*
-          if-no-files-found: error
+          cp build/app/outputs/flutter-apk/app-release.apk "out/nanosh-admin-$NAME.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "out/nanosh-admin-$NAME.aab"
+      - name: Upload to release
+        run: gh release upload "$TAG" out/nanosh-admin-$NAME.apk out/nanosh-admin-$NAME.aab --clobber --repo "$GITHUB_REPOSITORY"
 
-  # ---------- iOS unsigned IPA (no Apple account yet) ----------
+  # ---------- 3b. iOS unsigned IPA → upload to release ----------
   ios:
-    needs: version
+    needs: [version, create_release]
     runs-on: macos-latest
     defaults:
       run:
         working-directory: admin_app
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+      NAME: ${{ needs.version.outputs.name }}
+      CODE: ${{ needs.version.outputs.code }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -87,41 +113,13 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign --build-name=${{ needs.version.outputs.name }} --build-number=${{ needs.version.outputs.code }} ${{ env.DART_DEFINES }}
-      - name: Package unsigned IPA
+      - name: Build iOS (no codesign) + package unsigned IPA
         run: |
+          flutter build ios --release --no-codesign --build-name=$NAME --build-number=$CODE $DART_DEFINES
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -R Runner.app Payload/Runner.app
           mkdir -p ../../../out
-          zip -r "../../../out/nanosh-admin-${{ needs.version.outputs.name }}-unsigned.ipa" Payload
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios
-          path: admin_app/out/*
-          if-no-files-found: error
-
-  # ---------- publish the release with both binaries ----------
-  release:
-    needs: [version, android, ios]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.version.outputs.tag }}
-          name: ${{ needs.version.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          body: |
-            Automated build of نانوش الإدارة `${{ needs.version.outputs.name }}` (build ${{ needs.version.outputs.code }}).
-
-            - `*.apk` — installable Android build.
-            - `*.aab` — Play Store bundle.
-            - `*-unsigned.ipa` — iOS build **without Apple signing** (won't install on a device until iOS signing is added).
-          files: dist/*
+          zip -r "../../../out/nanosh-admin-$NAME-unsigned.ipa" Payload
+      - name: Upload to release
+        run: gh release upload "$TAG" out/nanosh-admin-$NAME-unsigned.ipa --clobber --repo "$GITHUB_REPOSITORY"
