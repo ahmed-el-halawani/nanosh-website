@@ -66,6 +66,11 @@ Future<void> deleteOrderStep(int stepId) async {
   await _db.from('order_steps').delete().eq('id', stepId);
 }
 
+// ---------------- Order items ----------------
+Future<void> updateOrderItem(int itemId, Json patch) async {
+  await _db.from('order_items').update(patch).eq('id', itemId);
+}
+
 // ---------------- Per-item steps ----------------
 Future<void> updateItemStep(int stepId, Json patch) async {
   await _db.from('order_item_steps').update(patch).eq('id', stepId);

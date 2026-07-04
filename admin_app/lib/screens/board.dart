@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../data/api.dart';
+import '../data/constants.dart';
 import '../data/progress.dart';
 import '../widgets/item_sheet.dart';
 
@@ -16,10 +17,10 @@ class _BoardScreenState extends State<BoardScreen> {
   bool _loading = true;
   String? _error;
   String _filter = 'الكل';
-  // Items advanced this session -> the label they held when ticked (keeps them in the current filter).
+  // Items advanced this session -> the label they held when ticked.
   final Map<int, String> _advanced = {};
 
-  static const _order = ['استلمنا طلبك', 'تأكيد التفاصيل', 'تجهيز الخامة', 'جاري التنفيذ', 'جاهز للشحن'];
+  static const _order = ['تأكيد التفاصيل', 'تجهيز الخامة', 'جاري التنفيذ', 'جاهزة للتسليم'];
 
   @override
   void initState() {
@@ -94,37 +95,57 @@ class _BoardScreenState extends State<BoardScreen> {
         _advanced.clear();
         await _load();
       },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 84),
-              child: Wrap(
-                direction: Axis.vertical,
-                spacing: 8,
-                runSpacing: 8,
-                children: chips.map(_chip).toList(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cross = _crossAxisCount(constraints.maxWidth);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 50,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  itemCount: chips.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) => _chip(chips[i]),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text.rich(TextSpan(children: [
-            const TextSpan(text: 'عدد القطع: ', style: TextStyle(fontSize: 12, color: muted)),
-            TextSpan(text: '${items.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: teal)),
-          ])),
-          const SizedBox(height: 12),
-          if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 50),
-              child: Center(child: Text('لا توجد قطع مطابقة', style: TextStyle(color: muted))),
-            )
-          else
-            ...items.map(_itemCard),
-        ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Text.rich(TextSpan(children: [
+                  const TextSpan(text: 'عدد القطع المعروضة: ', style: TextStyle(fontSize: 12, color: muted)),
+                  TextSpan(text: '${items.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: teal)),
+                ])),
+              ),
+              Expanded(
+                child: items.isEmpty
+                    ? const Center(child: Text('لا توجد قطع مطابقة', style: TextStyle(color: muted)))
+                    : GridView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: cross,
+                          childAspectRatio: 1,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                        itemCount: items.length,
+                        itemBuilder: (_, i) => _itemCard(items[i]),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  int _crossAxisCount(double width) {
+    if (width >= 1200) return 5;
+    if (width >= 900) return 4;
+    if (width >= 640) return 3;
+    if (width >= 360) return 2;
+    return 2;
   }
 
   Widget _chip(String c) {
@@ -132,7 +153,7 @@ class _BoardScreenState extends State<BoardScreen> {
     return GestureDetector(
       onTap: () => setState(() => _filter = c),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
         decoration: BoxDecoration(
           color: on ? teal : Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -150,79 +171,102 @@ class _BoardScreenState extends State<BoardScreen> {
     final images = (it['products']?['images'] as List?)?.cast<String>() ?? const [];
     final src = images.isNotEmpty ? images.first : null;
     final done = ip.complete || ticked;
-    final label = ticked ? 'تم' : ip.currentLabel;
-    final opts = [
-      if ((it['size'] ?? '').toString().isNotEmpty) 'مقاس ${it['size']}',
-      if ((it['note'] ?? '').toString().isNotEmpty) it['note'],
-    ].join(' · ');
+    final label = done ? 'تم' : ip.currentLabel;
+    final statusKey = done ? 'ready' : ip.currentKey;
+    final style = statusStyle(statusKey);
+    final adminNote = (it['admin_note'] ?? '').toString();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: line)),
-      child: InkWell(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: line),
+        boxShadow: const [BoxShadow(color: Color(0x103C2814), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: () => openItemSheet(context, it,
             customer: it['customer'], phone: it['phone']?.toString(), onChanged: () => setState(() {})),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: src != null
-                    ? Image.network(src, width: 58, height: 58, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _ph())
-                    : _ph(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            src != null
+                ? Image.network(src, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _ph())
+                : _ph(),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black.withOpacity(0.82), Colors.black.withOpacity(0.35), Colors.transparent],
+                ),
               ),
-              const SizedBox(width: 11),
-              Expanded(
+            ),
+            Positioned(
+              top: 10, left: 10, right: 10,
+              child: Row(
+                textDirection: TextDirection.rtl,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(color: Color(style.bg), borderRadius: BorderRadius.circular(9)),
+                    child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(style.color))),
+                  ),
+                  const Spacer(),
+                  done
+                      ? Container(
+                          width: 34, height: 34,
+                          decoration: BoxDecoration(color: const Color(0xFFE8F0EC), borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.check, color: teal, size: 20))
+                      : SizedBox(
+                          width: 34, height: 34,
+                          child: Checkbox(
+                            value: false,
+                            activeColor: teal,
+                            side: const BorderSide(color: Colors.white, width: 2),
+                            onChanged: (_) => _advance(it),
+                          ),
+                        ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(it['name'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF2C3F3B))),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text('${it['customer']} · ${it['phone']}', style: const TextStyle(fontSize: 12, color: muted)),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+                    const SizedBox(height: 3),
+                    Text('${it['customer']} · ${it['phone']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11.5, color: Colors.white70)),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Text('الكمية: ${it['qty']} · ${ip.done}/${ip.total}',
+                            style: const TextStyle(fontSize: 11.5, color: Colors.white70)),
+                        if (adminNote.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(7)),
+                            child: const Text('ملاحظة', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                          ),
+                        ],
+                      ],
                     ),
-                    Text(opts.isEmpty ? 'الكمية: ${it['qty']}' : '$opts · الكمية: ${it['qty']}',
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF6A6155))),
-                    const SizedBox(height: 7),
-                    Row(children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                            color: done ? const Color(0xFFE8F0EC) : const Color(0xFFFBEEEE),
-                            borderRadius: BorderRadius.circular(9)),
-                        child: Text(label,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: done ? teal : accent)),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('${ip.done}/${ip.total}', style: const TextStyle(fontSize: 11, color: Color(0xFFA99E8E))),
-                    ]),
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
-              done
-                  ? Container(
-                      width: 42, height: 42,
-                      decoration: BoxDecoration(color: const Color(0xFFE8F0EC), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.check, color: teal))
-                  : SizedBox(
-                      width: 42, height: 42,
-                      child: Checkbox(
-                        value: false,
-                        activeColor: teal,
-                        onChanged: (_) => _advance(it),
-                      ),
-                    ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _ph() => Container(width: 58, height: 58, color: const Color(0xFFF3EDE2), child: const Icon(Icons.image, color: Color(0xFFD9CDB9)));
+  Widget _ph() => Container(color: const Color(0xFFF3EDE2), child: const Icon(Icons.image, color: Color(0xFFD9CDB9)));
 }

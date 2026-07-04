@@ -9,6 +9,10 @@ const ink = Color(0xFF243B37);
 const muted = Color(0xFF8A7F6F);
 const line = Color(0xFFF0E8DB);
 const field = Color(0xFFECE2D3);
+const statusYellow = Color(0xFFC7812C);
+const statusYellowBg = Color(0xFFFFF6E6);
+const statusBlue = Color(0xFF2563EB);
+const statusBlueBg = Color(0xFFEFF6FF);
 
 ThemeData buildTheme() {
   final base = ThemeData(

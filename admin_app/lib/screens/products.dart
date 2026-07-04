@@ -69,58 +69,115 @@ class _ProductsScreenState extends State<ProductsScreen> {
           if (products.isEmpty) {
             return const Center(child: Text('لا توجد منتجات', style: TextStyle(color: muted)));
           }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-            itemCount: products.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) => _productCard(products[i]),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final cross = _crossAxisCount(constraints.maxWidth);
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cross,
+                  childAspectRatio: 1,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: products.length,
+                itemBuilder: (_, i) => _productCard(products[i]),
+              );
+            },
           );
         },
       ),
     );
   }
 
+  int _crossAxisCount(double width) {
+    if (width >= 1200) return 5;
+    if (width >= 900) return 4;
+    if (width >= 600) return 3;
+    if (width >= 360) return 2;
+    return 2;
+  }
+
   Widget _productCard(Json p) {
     final images = (p['images'] as List?)?.cast<String>() ?? const [];
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: line),
+    final onSale = p['on_sale'] == true;
+    final oldPrice = p['old_price'] as num?;
+    return InkWell(
+      onTap: () => _openForm(p),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: line),
+          boxShadow: const [BoxShadow(color: Color(0x103C2814), blurRadius: 8, offset: Offset(0, 2))],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            images.isNotEmpty
+                ? Image.network(images.first, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _imgPlaceholder())
+                : _imgPlaceholder(),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black.withOpacity(0.78), Colors.black.withOpacity(0.25), Colors.transparent],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10, right: 10,
+              child: GestureDetector(
+                onTap: () => _delete(p),
+                child: Container(
+                  width: 34, height: 34,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.92), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.delete_outline, color: accent, size: 19),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(p['name_ar'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: Colors.white, shadows: [Shadow(color: Colors.black45, blurRadius: 3)])),
+                    const SizedBox(height: 3),
+                    Text([p['gender'], p['type']].where((e) => e != null && '$e'.isNotEmpty).join(' · '),
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                    const SizedBox(height: 6),
+                    onSale && oldPrice != null
+                        ? Row(
+                            children: [
+                              Text(fmt(p['price_egp'] as num?),
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: accent)),
+                              const SizedBox(width: 6),
+                              Text(fmt(oldPrice),
+                                  style: const TextStyle(fontSize: 11, color: Colors.white70, decoration: TextDecoration.lineThrough)),
+                            ],
+                          )
+                        : Text(fmt(p['price_egp'] as num?),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: teal)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      padding: const EdgeInsets.all(11),
-      child: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: images.isNotEmpty
-              ? Image.network(images.first, width: 58, height: 58, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _imgPlaceholder())
-              : _imgPlaceholder(),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(p['name_ar'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF2C3F3B))),
-              const SizedBox(height: 3),
-              Text([p['gender'], p['type']].where((e) => e != null && '$e'.isNotEmpty).join(' · '),
-                  style: const TextStyle(fontSize: 12, color: muted)),
-              const SizedBox(height: 3),
-              Text(fmt(p['price_egp'] as num?),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: teal)),
-            ],
-          ),
-        ),
-        IconButton(icon: const Icon(Icons.edit_outlined, color: teal, size: 20), onPressed: () => _openForm(p)),
-        IconButton(icon: const Icon(Icons.delete_outline, color: accent, size: 20), onPressed: () => _delete(p)),
-      ]),
     );
   }
 
   Widget _imgPlaceholder() =>
-      Container(width: 58, height: 58, color: const Color(0xFFF3EDE2), child: const Icon(Icons.image, color: Color(0xFFD9CDB9)));
+      Container(color: const Color(0xFFF3EDE2), child: const Icon(Icons.image, color: Color(0xFFD9CDB9)));
 }
 
 // ------------------------- Add / Edit form -------------------------
@@ -345,7 +402,7 @@ class _ProductFormPageState extends State<ProductFormPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(src, width: 64, height: 64, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(width: 64, height: 64, color: const Color(0xFFF3EDE2))),
+                errorBuilder: (context, error, stackTrace) => Container(width: 64, height: 64, color: const Color(0xFFF3EDE2))),
           ),
           Positioned(
             top: -6,

@@ -16,28 +16,41 @@ class AreaDef {
 const List<AreaDef> orderAreas = [
   AreaDef('received', 'المراجعة', 'استلمنا طلبك', 'طلبك وصلنا وجاري المراجعة'),
   AreaDef('confirming', 'التأكيد', 'تأكيد التفاصيل', 'نتواصل معك لتأكيد المقاسات والألوان'),
-  AreaDef('making', 'التنفيذ', 'جاري التنفيذ', 'يتم حياكة قطعك يدويًا بعناية'),
-  AreaDef('shipping', 'الشحن', 'جاهز للشحن', 'طلبك جاهز وقيد التوصيل'),
-  AreaDef('done', 'التسليم', 'تم التسليم', 'استمتعي بقطعتك 🌿'),
+  AreaDef('preparing', 'التجهيز', 'تجهيز الطلبية', 'قطع الطلبية قيد التجهيز للشحن'),
+  AreaDef('delivering', 'التوصيل', 'جاري التوصيل', 'طلبك في طريقه إليك'),
+  AreaDef('delivered', 'التسليم', 'تم التسليم', 'استمتعي بقطعتك 🌿'),
 ];
 
 const Map<String, String> statusLabel = {
   'received': 'قيد المراجعة',
   'confirming': 'جاري التأكيد',
-  'making': 'قيد التنفيذ',
-  'shipping': 'قيد الشحن',
-  'done': 'تم التسليم',
+  'preparing': 'قيد التجهيز',
+  'ready_for_delivery': 'جاهز للتوصيل',
+  'delivering': 'قيد التوصيل',
+  'delivered': 'تم التسليم',
 };
 
-// Per-item default steps (today's 5 + the material step), inserted before making.
+// Per-item default production steps. 'confirming' and 'ready' are locked;
+// workers may add/reorder/delete the middle steps.
 const List<Map<String, String>> itemSteps = [
-  {'key': 'received', 'label': 'استلمنا طلبك', 'note': 'طلبك وصلنا وجاري المراجعة'},
   {'key': 'confirming', 'label': 'تأكيد التفاصيل', 'note': 'نتواصل معك لتأكيد المقاسات والألوان'},
   {'key': 'material', 'label': 'تجهيز الخامة', 'note': 'تجهيز الخيوط والخامات لهذه القطعة'},
   {'key': 'making', 'label': 'جاري التنفيذ', 'note': 'يتم حياكة القطعة يدويًا بعناية'},
-  {'key': 'shipping', 'label': 'جاهز للشحن', 'note': 'القطعة جاهزة للتسليم'},
-  {'key': 'done', 'label': 'تم التسليم', 'note': 'تم تسليم القطعة 🌿'},
+  {'key': 'ready', 'label': 'جاهزة للتسليم', 'note': 'القطعة جاهزة للتسليم'},
 ];
+
+({int color, int bg}) statusStyle(String key) {
+  if (const {'delivered', 'ready', 'done'}.contains(key)) {
+    return (color: 0xFF1B695E, bg: 0xFFE8F0EC);
+  }
+  if (key == 'ready_for_delivery') {
+    return (color: 0xFF2563EB, bg: 0xFFEFF6FF);
+  }
+  if (const {'preparing', 'delivering', 'making'}.contains(key)) {
+    return (color: 0xFFC7812C, bg: 0xFFFFF6E6);
+  }
+  return (color: 0xFFC6544E, bg: 0xFFFBEEEE);
+}
 
 // "1750" -> "1,750 ج.م"
 String fmt(num? n) {
