@@ -1,5 +1,5 @@
 import { getMyOrders } from '../api.js';
-import { fmt, waLink, STATUS_LABEL, ACCENT } from '../config.js';
+import { fmt, waLink, STATUS_LABEL, statusStyle } from '../config.js';
 import { stepsHtml, orderProgress } from './steps.js';
 import { loginPrompt } from './account.js';
 import { backBtn } from '../ui.js';
@@ -27,7 +27,7 @@ export default async function orders(root, ctx) {
           <div style="font-size:14.5px; font-weight:800; color:#243b37;">طلب #${o.id}</div>
           <div style="font-size:12px; color:#a99e8e; margin-top:1px;">${dateFmt(o.created_at)} · ${count} قطعة</div>
         </div>
-        <div style="font-size:12px; font-weight:700; color:${ACCENT}; background:#fbeeee; padding:5px 11px; border-radius:11px;">${progress.label}</div>
+        <div style="font-size:12px; font-weight:700; color:${statusStyle(progress.currentKey).color}; background:${statusStyle(progress.currentKey).bg}; padding:5px 11px; border-radius:11px;">${progress.label}</div>
       </div>
       <div class="nn-scroll" style="display:flex; gap:7px; overflow-x:auto; margin:13px 0 3px;">${thumbs}</div>
       <div style="margin-top:12px; padding-top:6px; border-top:1px solid #f3ece0;">${stepsHtml(o)}</div>

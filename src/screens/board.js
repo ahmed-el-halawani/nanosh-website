@@ -1,5 +1,5 @@
-import { getAllOrders, updateItemStep, addItemStep, deleteItemStep } from '../api.js';
-import { fmt } from '../config.js';
+import { getAllOrders, updateItemStep, addItemStep, deleteItemStep, updateOrderItem } from '../api.js';
+import { fmt, statusStyle } from '../config.js';
 import { itemProgress } from './steps.js';
 import { openModal } from '../ui.js';
 
@@ -23,12 +23,14 @@ export async function boardTab(content, ctx) {
 
   const allItems = flatten;
 
+  // Order-level keys that should never appear on the production board.
+  const ORDER_ONLY_KEYS = new Set(['received', 'delivering', 'delivered']);
+
   // How a step label relates to an item: done/current/future.
-  // 'received' and 'done' are excluded from board filters (received is auto-done; done is order-level).
   const stepState = (it, label) => {
     const ip = itemProgress(it);
     const step = (it.order_item_steps || []).find((s) => s.label === label);
-    if (!step || step.key === 'received' || step.key === 'done') return 'hide';
+    if (!step || ORDER_ONLY_KEYS.has(step.key)) return 'hide';
     if (step.done || ip.complete) return 'done';
     if (step.id === ip.current?.id) return 'current';
     return 'hide';
@@ -39,7 +41,7 @@ export async function boardTab(content, ctx) {
     const labelSort = new Map();
     allItems().forEach((it) => {
       (it.order_item_steps || []).forEach((s) => {
-        if (s.key === 'received' || s.key === 'done') return;
+        if (ORDER_ONLY_KEYS.has(s.key)) return;
         if (!labelSort.has(s.label) || s.sort < labelSort.get(s.label)) {
           labelSort.set(s.label, s.sort);
         }
@@ -85,7 +87,7 @@ export async function boardTab(content, ctx) {
         </div>
         <div style="font-size:12px; color:#8a7f6f; margin-top:8px;">عدد القطع المعروضة: <span style="font-weight:800; color:#1B695E;">${items.length}</span></div>
       </div>
-      <div style="display:flex; flex-direction:column; gap:12px; padding-bottom:20px;">
+      <div class="nn-board-grid">
         ${items.length ? items.map((it) => itemCard(it, filter, stepState)).join('') : `<div style="text-align:center; padding:50px 20px; color:#a99e8e;">لا توجد قطع مطابقة</div>`}
       </div>`;
 
@@ -118,32 +120,38 @@ export async function boardTab(content, ctx) {
 function itemCard(it, filter, stepState) {
   const src = it.products?.images?.[0];
   const ip = itemProgress(it);
-  const state = filter === 'الكل' ? null : stepState(it, filter);
+  const state = stepState(it, filter);
   const done = state === 'done' || ip.complete;
   const current = state === 'current';
-  const statusColor = done ? '#1B695E' : '#C6544E';
-  const statusBg = done ? '#e8f0ec' : '#fbeeee';
+  const statusKey = done ? 'ready' : ip.currentKey;
+  const ipStyle = statusStyle(statusKey);
   const label = done ? 'تم' : ip.currentLabel;
-  const opts = [it.size && `مقاس ${it.size}`, it.note].filter(Boolean).join(' · ');
-  const advanceBox = done
-    ? `<div style="width:42px; height:42px; border-radius:12px; background:#e8f0ec; flex-shrink:0; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 9-11" stroke="#1B695E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
-    : current
-      ? `<input type="checkbox" data-advance="${it.id}" style="width:42px; height:42px; accent-color:#1B695E; flex-shrink:0; cursor:pointer;">`
+  const opts = [it.size && `مقاس ${it.size}`, it.note && `ملاحظة: ${it.note}`].filter(Boolean).join(' · ');
+  const adminNote = it.admin_note || '';
+  const img = src
+    ? `<img src="${esc(src)}" alt="${esc(it.name)}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#f3ede2;">`
+    : `<div style="position:absolute; inset:0; background:linear-gradient(135deg,#e9e0d2,#f3ede2);"></div>`;
+  const action = done
+    ? `<div data-done style="width:34px; height:34px; border-radius:10px; background:#e8f0ec; display:flex; align-items:center; justify-content:center; pointer-events:none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="m5 12 5 5 9-11" stroke="#1B695E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
+      : current
+      ? `<input type="checkbox" data-advance="${it.id}" style="width:34px; height:34px; accent-color:#1B695E; cursor:pointer;">`
       : '';
-  return `<div data-sheet="${it.id}" style="display:flex; gap:11px; align-items:center; background:#fff; border:1px solid #f0e8db; border-radius:16px; padding:11px; cursor:pointer; box-shadow:0 2px 8px rgba(60,40,20,.05); animation:nn-rise .35s ease both;">
-    ${src ? `<img src="${esc(src)}" alt="${esc(it.name)}" style="width:58px; height:58px; border-radius:12px; object-fit:cover; background:#f3ede2; flex-shrink:0;">` : `<div style="width:58px; height:58px; border-radius:12px; background:#f3ede2; flex-shrink:0;"></div>`}
-    <div style="flex:1; min-width:0;">
-      <div style="display:flex; justify-content:space-between; gap:8px;">
-        <div style="font-size:14px; font-weight:700; color:#2c3f3b; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(it.name)}</div>
-      </div>
-      <div style="font-size:12px; color:#8a7f6f; margin-top:3px;">${esc(it.customer)} · <span dir="ltr">${esc(it.phone)}</span></div>
-      ${opts ? `<div style="font-size:11.5px; color:#6a6155; margin-top:2px; line-height:1.4;">${esc(opts)} · الكمية: ${it.qty}</div>` : `<div style="font-size:11.5px; color:#6a6155; margin-top:2px;">الكمية: ${it.qty}</div>`}
-      <div style="display:flex; align-items:center; gap:8px; margin-top:7px;">
-        <span style="font-size:11px; font-weight:700; color:${statusColor}; background:${statusBg}; padding:4px 10px; border-radius:9px;">${label}</span>
-        <span style="font-size:11px; color:#a99e8e;">${ip.done}/${ip.total}</span>
-      </div>
+  return `<div data-sheet="${it.id}" style="aspect-ratio:1/1; border-radius:16px; overflow:hidden; position:relative; cursor:pointer; box-shadow:0 2px 8px rgba(60,40,20,.08); animation:nn-rise .35s ease both; isolation:isolate;">
+    ${img}
+    <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(36,59,55,.82) 0%, rgba(36,59,55,.35) 45%, rgba(36,59,55,0) 70%);"></div>
+    <div style="position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; direction:rtl;">
+      <span style="font-size:11px; font-weight:800; color:${ipStyle.color}; background:${ipStyle.bg}; padding:4px 9px; border-radius:9px; box-shadow:0 1px 3px rgba(0,0,0,.08);">${label}</span>
+      ${action ? `<div style="flex-shrink:0;">${action}</div>` : ''}
     </div>
-    ${advanceBox}
+    <div style="position:absolute; bottom:0; left:0; right:0; padding:12px 12px 14px; color:#fff; direction:rtl;">
+      <div style="font-size:14px; font-weight:800; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.25);">${esc(it.name)}</div>
+      <div style="font-size:11.5px; opacity:.92; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.2);">${esc(it.customer)} · <span dir="ltr">${esc(it.phone)}</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px;">
+        <span style="font-size:11px; opacity:.9; text-shadow:0 1px 2px rgba(0,0,0,.2);">الكمية: ${it.qty} · ${ip.done}/${ip.total}</span>
+        ${adminNote ? `<span style="font-size:11px; opacity:.85; background:rgba(255,255,255,.18); padding:2px 8px; border-radius:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:50%;">ملاحظة</span>` : ''}
+      </div>
+      ${opts ? `<div style="font-size:11px; opacity:.8; margin-top:5px; line-height:1.4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.2);">${esc(opts)}</div>` : ''}
+    </div>
   </div>`;
 }
 
@@ -151,24 +159,47 @@ export function openItemSheet(root, it, onChange) {
   const steps = (it.order_item_steps ||= []);
   const src = it.products?.images?.[0];
 
+  const ip = itemProgress(it);
+  const ipStyle = statusStyle(ip.currentKey);
+  const adminNote = it.admin_note || '';
+  const noteIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M8 7h8M8 12h5M8 17h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 10.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m17 3 4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
   const body = `
     <div style="padding:10px 0 6px; display:flex; justify-content:center; flex-shrink:0;"><div class="nn-sheet-handle" style="width:40px; height:5px; border-radius:3px; background:#ddd0bd;"></div></div>
-    <div class="nn-scroll" style="overflow-y:auto; padding:12px 24px 8px;">
-      <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:16px;">
-        ${src ? `<img src="${esc(src)}" alt="${esc(it.name)}" style="width:100px; height:100px; border-radius:18px; object-fit:cover; background:#f3ede2; flex-shrink:0;">` : `<div style="width:100px; height:100px; border-radius:18px; background:#f3ede2; flex-shrink:0;"></div>`}
+    <div class="nn-scroll" style="overflow-y:auto; padding:14px 24px 8px;">
+      <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:18px;">
+        ${src ? `<img src="${esc(src)}" alt="${esc(it.name)}" style="width:110px; height:110px; border-radius:20px; object-fit:cover; background:#f3ede2; flex-shrink:0;">` : `<div style="width:110px; height:110px; border-radius:20px; background:#f3ede2; flex-shrink:0;"></div>`}
         <div style="flex:1; min-width:0;">
           <div style="font-size:20px; font-weight:800; color:#243b37; line-height:1.35;">${esc(it.name)}</div>
           <div style="font-size:14px; color:#8a7f6f; margin-top:5px;">${esc(it.customer)} · <span dir="ltr">${esc(it.phone)}</span></div>
-          ${it.size ? `<div style="font-size:16px; font-weight:700; color:#1B695E; margin-top:8px;">المقاس: ${esc(it.size)}</div>` : ''}
-          ${it.note ? `<div style="font-size:16px; font-weight:600; color:#5a5245; margin-top:${it.size ? '6px' : '8px'}; line-height:1.55; background:#fff; border:1px solid #f0e8db; border-radius:12px; padding:10px 12px;">${esc(it.note)}</div>` : ''}
-          <div style="font-size:15px; color:#6a6155; margin-top:10px;">الكمية: ${it.qty}</div>
+
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px;">
+            ${it.size ? `<span style="font-size:14px; font-weight:800; color:#5a5245; background:#f3ede2; padding:6px 12px; border-radius:10px;">المقاس: ${esc(it.size)}</span>` : ''}
+            <span style="font-size:14px; font-weight:800; color:#243b37; background:#e8f0ec; padding:6px 12px; border-radius:10px;">الكمية: ${it.qty}</span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+            <span style="font-size:13px; font-weight:800; color:${ipStyle.color}; background:${ipStyle.bg}; padding:6px 13px; border-radius:10px;">${ip.currentLabel}</span>
+            <span style="font-size:13px; font-weight:700; color:#8a7f6f;">${ip.done} من ${ip.total} خطوات</span>
+          </div>
         </div>
       </div>
+
+      ${it.note ? `<div style="margin-bottom:16px; background:#FBF6EE; border:1px solid #efe6d8; border-radius:14px; padding:12px 14px;">
+        <div style="font-size:12.5px; font-weight:800; color:#8a7f6f; margin-bottom:5px;">ملاحظة العميلة</div>
+        <div style="font-size:15px; font-weight:600; color:#5a5245; line-height:1.6;">${esc(it.note)}</div>
+      </div>` : ''}
+
+      <div style="margin-bottom:16px; background:#FBF6EE; border:1px solid ${adminNote ? '#d5e5df' : '#ece2d3'}; border-radius:14px; padding:12px 14px;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:800; color:#6a6155; margin-bottom:7px;">${noteIcon} ملاحظة إدارية</div>
+        <textarea id="admin-note" placeholder="أضيفي ملاحظة خاصة لهذه القطعة…" style="width:100%; height:72px; border-radius:11px; border:1px solid ${adminNote ? '#d5e5df' : '#ece2d3'}; background:#fff; padding:10px 12px; font-family:'Tajawal',sans-serif; font-size:15px; font-weight:${adminNote ? '700' : '500'}; color:${adminNote ? '#243b37' : '#8a7f6f'}; resize:none; line-height:1.55;">${esc(adminNote)}</textarea>
+      </div>
+
       <div style="font-size:15px; font-weight:800; color:#3a4a45; margin-bottom:10px;">خطوات التنفيذ</div>
       <div id="item-steps"></div>
       <div style="display:flex; gap:8px; margin-top:12px;">
-        <input id="add-step" placeholder="＋ أضيفي خطوة مخصصة…" style="flex:1; height:44px; border-radius:11px; border:1px solid #ece2d3; background:#FBF6EE; padding:0 12px; font-family:'Tajawal',sans-serif; font-size:14px;">
-        <button id="add-step-btn" style="height:44px; padding:0 16px; border-radius:11px; background:#1B695E; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer;">إضافة</button>
+        <input id="add-step" placeholder="＋ أضيفي خطوة مخصصة…" style="flex:1; height:46px; border-radius:11px; border:1px solid #ece2d3; background:#FBF6EE; padding:0 12px; font-family:'Tajawal',sans-serif; font-size:14px;">
+        <button id="add-step-btn" style="height:46px; padding:0 18px; border-radius:11px; background:#1B695E; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer;">إضافة</button>
       </div>
     </div>
     <div style="padding:12px 24px calc(16px + env(safe-area-inset-bottom)); border-top:1px solid #efe6d8; background:#FBF6EE; flex-shrink:0;">
@@ -182,19 +213,23 @@ export function openItemSheet(root, it, onChange) {
     const sorted = steps.slice().sort((x, y) => x.sort - y.sort);
     stepsEl.innerHTML = sorted.map((s, idx) => {
       const isReceived = s.key === 'received';
-      const canUp = idx > 0 && !isReceived;
-      const canDown = idx < sorted.length - 1 && !isReceived;
-      const controls = isReceived
-        ? `<span style="font-size:12px; color:#a99e8e; padding:0 8px;">مُنجز تلقائيًا</span>`
+      const isConfirming = s.key === 'confirming';
+      const isReady = s.key === 'ready';
+      const nextIsReady = sorted[idx + 1]?.key === 'ready';
+      const locked = isReceived || isConfirming;
+      const canUp = idx > 0 && !isReceived && !isConfirming && !isReady;
+      const canDown = idx < sorted.length - 1 && !isReceived && !isConfirming && !nextIsReady;
+      const controls = locked
+        ? `<span style="font-size:12px; color:#a99e8e; padding:0 8px;">${isConfirming ? 'يُتحكم به من حالة الطلب' : 'مُنجز تلقائيًا'}</span>`
         : `<div style="display:flex; gap:5px; flex-shrink:0;">
             <button data-up="${s.id}" ${canUp ? '' : 'disabled'} style="width:32px; height:32px; border-radius:8px; background:#fff; border:1px solid #e7ddce; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:${canUp ? 1 : .4};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m18 15-6-6-6 6" stroke="#8a7f6f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button data-down="${s.id}" ${canDown ? '' : 'disabled'} style="width:32px; height:32px; border-radius:8px; background:#fff; border:1px solid #e7ddce; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:${canDown ? 1 : .4};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="#8a7f6f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button data-delstep="${s.id}" style="width:32px; height:32px; border-radius:8px; background:#fff; border:1px solid #f2dede; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M9 7V5h6v2m-8 0 1 12h8l1-12" stroke="#c0a999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </div>`;
       return `<div style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f7f2e9;">
-        <input type="checkbox" data-step="${s.id}" ${s.done ? 'checked' : ''} ${isReceived ? 'disabled' : ''} style="width:26px; height:26px; accent-color:#1B695E; flex-shrink:0;">
+        <input type="checkbox" data-step="${s.id}" ${s.done ? 'checked' : ''} ${locked ? 'disabled' : ''} style="width:26px; height:26px; accent-color:#1B695E; flex-shrink:0;">
         <div style="flex:1; min-width:0;">
-          <div style="font-size:16px; font-weight:${s.done ? 700 : 600}; color:${s.done ? '#243b37' : '#5a5245'};">${esc(s.label)}</div>
+          <div style="font-size:16px; font-weight:${s.done ? 700 : 600}; color:${s.done ? '#243b37' : '#5a5245'};">${esc(s.label)}${isReady ? ' <span style="font-size:11px; color:#a99e8e; font-weight:500;">(الخطوة النهائية)</span>' : ''}</div>
           ${s.note ? `<div style="font-size:13px; color:#a99e8e; margin-top:2px;">${esc(s.note)}</div>` : ''}
         </div>
         ${controls}
@@ -204,10 +239,37 @@ export function openItemSheet(root, it, onChange) {
     stepsEl.querySelectorAll('[data-step]').forEach((cb) => cb.addEventListener('change', async () => {
       const id = +cb.dataset.step;
       const s = steps.find((x) => x.id === id);
+      const sortedNow = steps.slice().sort((x, y) => x.sort - y.sort);
+      const idx = sortedNow.findIndex((x) => x.id === id);
       cb.disabled = true;
+
+      // Sequential validation.
+      if (cb.checked) {
+        const prev = sortedNow[idx - 1];
+        if (prev && !prev.done) {
+          alert('أكملي الخطوة السابقة أولاً');
+          cb.checked = false; cb.disabled = false; return;
+        }
+      } else {
+        const next = sortedNow[idx + 1];
+        if (next && next.done) {
+          alert('الغي الخطوة التالية أولاً');
+          cb.checked = true; cb.disabled = false; return;
+        }
+      }
+
       try {
         await updateItemStep(id, { done: cb.checked });
         s.done = cb.checked;
+
+        // If unchecked, uncheck all later steps.
+        if (!cb.checked) {
+          const later = sortedNow.slice(idx + 1).filter((x) => x.done);
+          await Promise.all(later.map((ls) =>
+            updateItemStep(ls.id, { done: false }).then(() => { ls.done = false; })
+          ));
+        }
+
         renderSteps();
       } catch (e) {
         cb.checked = !cb.checked;
@@ -252,14 +314,38 @@ export function openItemSheet(root, it, onChange) {
   overlay.querySelector('#add-step-btn').addEventListener('click', async () => {
     const inp = overlay.querySelector('#add-step');
     const label = inp.value.trim(); if (!label) return;
-    const sort = steps.reduce((m, s) => Math.max(m, s.sort), -1) + 1;
+    // Insert custom steps before the final 'ready' step so ready stays last.
+    const readyStep = steps.find((s) => s.key === 'ready');
+    const sort = readyStep ? readyStep.sort : steps.reduce((m, s) => Math.max(m, s.sort), -1) + 1;
     try {
       const row = await addItemStep(it.id, label, sort, null);
+      if (readyStep) {
+        await updateItemStep(readyStep.id, { sort: readyStep.sort + 1 });
+        readyStep.sort += 1;
+      }
       steps.push(row);
       inp.value = '';
       renderSteps();
     } catch (e) { alert('تعذّر الإضافة: ' + e.message); }
   });
+
+  const noteTa = overlay.querySelector('#admin-note');
+  let savedNote = (it.admin_note || '').trim();
+  let noteTimer = null;
+  const saveNote = async () => {
+    const val = noteTa.value.trim();
+    if (val === savedNote) return;
+    try {
+      await updateOrderItem(it.id, { admin_note: val });
+      it.admin_note = val;
+      savedNote = val;
+      noteTa.style.borderColor = '#1B695E';
+      setTimeout(() => noteTa.style.borderColor = '', 800);
+    } catch (e) { alert('تعذّر حفظ الملاحظة: ' + e.message); }
+  };
+  noteTa.addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(saveNote, 900); });
+  noteTa.addEventListener('blur', () => { clearTimeout(noteTimer); saveNote(); });
+  noteTa.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); clearTimeout(noteTimer); saveNote(); } });
 
   overlay.querySelector('[data-done]').addEventListener('click', close);
 }

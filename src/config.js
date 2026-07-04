@@ -9,28 +9,41 @@ export const TEAL = '#1B695E';
 
 // Order lifecycle areas. Each area is a stage with worker sub-steps; customers see one milestone node per area.
 export const ORDER_AREAS = [
-  { key: 'received',   name: 'المراجعة', label: 'استلمنا طلبك',   note: 'طلبك وصلنا وجاري المراجعة' },
-  { key: 'confirming', name: 'التأكيد',  label: 'تأكيد التفاصيل', note: 'نتواصل معك لتأكيد المقاسات والألوان' },
-  { key: 'making',     name: 'التنفيذ',  label: 'جاري التنفيذ',   note: 'يتم حياكة قطعك يدويًا بعناية' },
-  { key: 'shipping',   name: 'الشحن',    label: 'جاهز للشحن',     note: 'طلبك جاهز وقيد التوصيل' },
-  { key: 'done',       name: 'التسليم',  label: 'تم التسليم',     note: 'استمتعي بقطعتك 🌿' },
+  { key: 'received',   name: 'المراجعة',    label: 'استلمنا طلبك',   note: 'طلبك وصلنا وجاري المراجعة' },
+  { key: 'confirming', name: 'التأكيد',     label: 'تأكيد التفاصيل', note: 'نتواصل معك لتأكيد المقاسات والألوان' },
+  { key: 'preparing',  name: 'التجهيز',     label: 'تجهيز الطلبية',  note: 'قطع الطلبية قيد التجهيز للشحن' },
+  { key: 'delivering', name: 'التوصيل',     label: 'جاري التوصيل',   note: 'طلبك في طريقه إليك' },
+  { key: 'delivered',  name: 'التسليم',     label: 'تم التسليم',     note: 'استمتعي بقطعتك 🌿' },
 ];
 export const STATUS_LABEL = {
   received: 'قيد المراجعة',
   confirming: 'جاري التأكيد',
-  making: 'قيد التنفيذ',
-  shipping: 'قيد الشحن',
-  done: 'تم التسليم',
+  preparing: 'قيد التجهيز',
+  ready_for_delivery: 'جاهز للتوصيل',
+  delivering: 'قيد التوصيل',
+  delivered: 'تم التسليم',
 };
+
+// Status pill colors: green = final, yellow = active/in-progress, blue = ready for delivery, red = pending/waiting.
+export function statusStyle(key) {
+  if (['delivered', 'ready', 'done'].includes(key)) {
+    return { color: '#1B695E', bg: '#e8f0ec' };
+  }
+  if (key === 'ready_for_delivery') {
+    return { color: '#2563eb', bg: '#eff6ff' };
+  }
+  if (['preparing', 'delivering', 'making'].includes(key)) {
+    return { color: '#c7812c', bg: '#fff6e6' };
+  }
+  return { color: '#C6544E', bg: '#fbeeee' };
+}
 
 // Per-item production steps. Seeded for every order_item on checkout; workers may add/reorder/delete.
 export const ITEM_STEPS = [
-  { key: 'received',   label: 'استلمنا طلبك',   note: 'طلبك وصلنا وجاري المراجعة' },
   { key: 'confirming', label: 'تأكيد التفاصيل', note: 'نتواصل معك لتأكيد المقاسات والألوان' },
   { key: 'material',   label: 'تجهيز الخامة',   note: 'تجهيز الخيوط والخامات لهذه القطعة' },
   { key: 'making',     label: 'جاري التنفيذ',   note: 'يتم حياكة القطعة يدويًا بعناية' },
-  { key: 'shipping',   label: 'جاهز للشحن',     note: 'القطعة جاهزة للتسليم' },
-  { key: 'done',       label: 'تم التسليم',     note: 'تم تسليم القطعة 🌿' },
+  { key: 'ready',      label: 'جاهزة للتسليم',  note: 'القطعة جاهزة للتسليم' },
 ];
 
 // price → "1,750 ج.م" (matches the source catalogue formatting)

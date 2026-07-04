@@ -28,6 +28,18 @@ input { font-family: 'Tajawal', sans-serif; }
 .nn-spinner { width: 22px; height: 22px; border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: nn-spin .7s linear infinite; }
 .nn-desktop-only { display: none; }
 
+/* Production board: responsive square-tile grid */
+.nn-board-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); padding-bottom: 20px; }
+@media (min-width: 420px) { .nn-board-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; } }
+@media (min-width: 640px) { .nn-board-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; } }
+@media (min-width: 1024px) { .nn-board-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; } }
+
+/* Admin products/orders: responsive square-tile grid */
+.nn-admin-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); padding-bottom: 20px; }
+@media (min-width: 420px) { .nn-admin-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; } }
+@media (min-width: 640px) { .nn-admin-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; } }
+@media (min-width: 1024px) { .nn-admin-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; } }
+
 /* ============================ DESKTOP LAYER (≥900px) ============================ */
 /* Structural containers carry classes; these overrides beat the mobile inline styles. */
 @media (min-width: 900px) {

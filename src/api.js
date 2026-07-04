@@ -42,9 +42,9 @@ export async function createOrder(userId, cartItems) {
   const { data: itemRows, error: iErr } = await supabase.from('order_items').insert(items).select();
   if (iErr) throw iErr;
 
-  const orderSteps = ORDER_AREAS.map((a) => ({
+  const orderSteps = ORDER_AREAS.map((a, idx) => ({
     order_id: order.id, label: a.label, note: a.note, area: a.key,
-    done: a.key === 'received', sort: 0,
+    done: a.key === 'received', sort: idx,
   }));
   const { error: sErr } = await supabase.from('order_steps').insert(orderSteps);
   if (sErr) throw sErr;
@@ -52,7 +52,7 @@ export async function createOrder(userId, cartItems) {
   const itemSteps = (itemRows || []).flatMap((it) =>
     ITEM_STEPS.map((s, idx) => ({
       order_item_id: it.id, label: s.label, note: s.note, key: s.key,
-      done: s.key === 'received', sort: idx,
+      done: false, sort: idx,
     }))
   );
   if (itemSteps.length) {
@@ -128,6 +128,11 @@ export async function addOrderStep(orderId, label, sort, area) {
 }
 export async function deleteOrderStep(stepId) {
   const { error } = await supabase.from('order_steps').delete().eq('id', stepId);
+  if (error) throw error;
+}
+
+export async function updateOrderItem(itemId, patch) {
+  const { error } = await supabase.from('order_items').update(patch).eq('id', itemId);
   if (error) throw error;
 }
 

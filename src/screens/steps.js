@@ -5,27 +5,49 @@ const doneCheck = (size) => `<svg width="${size}" height="${size}" viewBox="0 0 
 // Single source of truth for deriving an order's status from its order_steps.
 export function orderProgress(order) {
   const all = order.order_steps || [];
+  const items = order.order_items || [];
+  const itemsReady = items.filter((it) => itemProgress(it).complete).length;
+  const totalItems = items.length;
+
   const areas = ORDER_AREAS.map((a) => {
     const steps = all
       .filter((s) => (s.area || 'received') === a.key)
       .sort((x, y) => x.sort - y.sort);
-    const done = steps.filter((s) => s.done).length;
+    let done = steps.filter((s) => s.done).length;
+    let total = steps.length;
+    // ponytail: preparing tracks item readiness, not sub-step count
+    if (a.key === 'preparing' && totalItems > 0) {
+      done = itemsReady;
+      total = totalItems;
+    }
     return {
       ...a,
       steps,
       done,
-      total: steps.length,
-      complete: steps.length > 0 && done === steps.length,
+      total,
+      complete: total > 0 && done === total,
     };
   });
-  const current = areas.find((a) => !a.complete);
-  const key = current ? current.key : 'done';
+
+  const firstIncomplete = areas.find((a) => !a.complete);
+  let key = firstIncomplete ? firstIncomplete.key : 'done';
+
+  // When preparing is fully checked and delivery hasn't started yet, show "ready for delivery".
+  const preparingArea = areas.find((a) => a.key === 'preparing');
+  const deliveringArea = areas.find((a) => a.key === 'delivering');
+  const deliveryStarted = (deliveringArea?.steps || []).some((s) => s.done);
+  if (preparingArea?.complete && !deliveryStarted && key !== 'delivered') {
+    key = 'ready_for_delivery';
+  }
+
   return {
     areas,
     currentKey: key,
     label: STATUS_LABEL[key],
     done: all.filter((s) => s.done).length,
     total: all.length,
+    itemsReady,
+    totalItems,
   };
 }
 
@@ -75,15 +97,20 @@ export function itemStepsHtml(item, big = false) {
 
 // Customer timeline: one node per ORDER_AREAS entry. Sub-steps stay admin-only.
 export function stepsHtml(order, big = false) {
-  const { areas } = orderProgress(order);
+  const progress = orderProgress(order);
+  const { areas, currentKey } = progress;
   const firstNotDone = areas.findIndex((a) => !a.complete);
+  const isReadyForDelivery = currentKey === 'ready_for_delivery';
   const sz = big ? 24 : 22;
   return areas.map((a, i) => {
     const done = a.complete;
     const current = i === firstNotDone;
     const last = i === areas.length - 1;
+    const label = isReadyForDelivery && a.key === 'delivering' ? STATUS_LABEL.ready_for_delivery : a.label;
+    const note = isReadyForDelivery && a.key === 'delivering' ? 'كل القطع جاهزة — بانتظار التوصيل' : (a.note || '');
+    const accent = isReadyForDelivery && a.key === 'delivering' ? '#2563eb' : '#1B695E';
     const dotBg = done ? '#1B695E' : '#fff';
-    const dotBorder = done || current ? '#1B695E' : '#d9cdb9';
+    const dotBorder = done || current ? accent : '#d9cdb9';
     const lineColor = done ? '#1B695E' : '#e7ddce';
     const check = done ? doneCheck(big ? 12 : 11) : '';
     return `<div style="display:flex; gap:11px; align-items:flex-start;">
@@ -92,8 +119,8 @@ export function stepsHtml(order, big = false) {
         ${last ? '' : `<div style="width:2px; flex:1; min-height:${sz}px; background:${lineColor};"></div>`}
       </div>
       <div style="padding-bottom:${big ? 18 : 16}px; flex:1;">
-        <div style="font-size:${big ? 14.5 : 14}px; font-weight:${current ? 800 : done ? 700 : 500}; color:${done ? '#243b37' : '#a99e8e'};">${a.label}</div>
-        <div style="font-size:12px; color:#a99e8e; margin-top:1px;">${a.note || ''}</div>
+        <div style="font-size:${big ? 14.5 : 14}px; font-weight:${current ? 800 : done ? 700 : 500}; color:${done ? '#243b37' : current ? accent : '#a99e8e'};">${label}</div>
+        <div style="font-size:12px; color:#a99e8e; margin-top:1px;">${note}</div>
       </div>
     </div>`;
   }).join('');

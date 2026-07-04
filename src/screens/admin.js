@@ -1,8 +1,10 @@
 import {
   getProducts, createProductRow, updateProductRow, deleteProductRow, uploadProductImage,
-  getAllOrders, updateOrderStep, addOrderStep, deleteOrderStep,
+  getAllOrders, updateOrderStep, addOrderStep, deleteOrderStep, updateOrderItem,
+  updateItemStep,
 } from '../api.js';
-import { fmt, waLink, STATUS_LABEL, ORDER_AREAS } from '../config.js';
+import { supabase } from '../supabase.js';
+import { fmt, waLink, STATUS_LABEL, ORDER_AREAS, statusStyle } from '../config.js';
 import { orderProgress, itemProgress } from './steps.js';
 import { backBtn, openModal } from '../ui.js';
 import { boardTab, openItemSheet } from './board.js';
@@ -61,14 +63,15 @@ async function productsTab(content, ctx) {
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
         إضافة منتج
       </button>
-      <div style="display:flex; flex-direction:column; gap:12px; max-width:720px;">
+      <div class="nn-admin-grid">
         ${products.map(productRow).join('')}
       </div>`;
     content.querySelector('[data-add]').addEventListener('click', () => openProductForm(content, null, reload));
-    content.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () =>
-      openProductForm(content, products.find((p) => p.id === b.dataset.edit), reload)));
-    content.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
-      const p = products.find((x) => x.id === b.dataset.del);
+    content.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () =>
+      openProductForm(content, products.find((p) => p.id === +el.dataset.edit), reload)));
+    content.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const p = products.find((x) => x.id === +b.dataset.del);
       if (!window.confirm(`حذف «${p.name_ar}»؟`)) return;
       await deleteProductRow(p.id); await reload();
     }));
@@ -78,16 +81,25 @@ async function productsTab(content, ctx) {
 }
 
 function productRow(p) {
-  return `<div style="display:flex; gap:12px; align-items:center; background:#fff; border:1px solid #f0e8db; border-radius:16px; padding:11px; box-shadow:0 2px 8px rgba(60,40,20,.05);">
-    <img src="${esc((p.images || [])[0] || '')}" alt="" style="width:58px; height:58px; border-radius:12px; object-fit:cover; background:#f3ede2; flex-shrink:0;">
-    <div style="flex:1; min-width:0;">
-      <div style="font-size:14px; font-weight:700; color:#2c3f3b; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(p.name_ar)}</div>
-      <div style="font-size:12px; color:#8a7f6f; margin-top:3px;">${esc(p.gender || '')}${p.type ? ' · ' + esc(p.type) : ''}</div>
-      <div style="font-size:14px; font-weight:800; color:#1B695E; margin-top:3px;">${fmt(p.price_egp)}</div>
+  const src = (p.images || [])[0] || '';
+  const img = src
+    ? `<img src="${esc(src)}" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#f3ede2;">`
+    : `<div style="position:absolute; inset:0; background:linear-gradient(135deg,#e9e0d2,#f3ede2);"></div>`;
+  const price = p.on_sale && p.old_price
+    ? `<span style="font-size:13px; font-weight:800; color:#C6544E;">${fmt(p.price_egp)}</span> <span style="font-size:11px; color:#a99e8e; text-decoration:line-through; margin-inline-start:6px;">${fmt(p.old_price)}</span>`
+    : `<span style="font-size:14px; font-weight:800; color:#1B695E;">${fmt(p.price_egp)}</span>`;
+  return `<div data-edit="${p.id}" style="aspect-ratio:1/1; border-radius:16px; overflow:hidden; position:relative; cursor:pointer; box-shadow:0 2px 8px rgba(60,40,20,.08); animation:nn-rise .35s ease both; isolation:isolate;">
+    ${img}
+    <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(36,59,55,.82) 0%, rgba(36,59,55,.25) 50%, rgba(36,59,55,0) 75%);"></div>
+    <div style="position:absolute; top:10px; right:10px; display:flex; gap:7px; direction:rtl;">
+      <button data-del="${p.id}" style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,.92); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,.1);" title="حذف">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M9 7V5h6v2m-8 0 1 12h8l1-12" stroke="#C6544E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
-    <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
-      <button data-edit="${p.id}" style="width:38px; height:38px; border-radius:10px; background:#e8f0ec; border:1px solid #d5e5df; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z" stroke="#1B695E" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
-      <button data-del="${p.id}" style="width:38px; height:38px; border-radius:10px; background:#fbeeee; border:1px solid #f2dede; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M9 7V5h6v2m-8 0 1 12h8l1-12" stroke="#C6544E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <div style="position:absolute; bottom:0; left:0; right:0; padding:12px 12px 14px; color:#fff; direction:rtl;">
+      <div style="font-size:14.5px; font-weight:800; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.25);">${esc(p.name_ar)}</div>
+      <div style="font-size:12px; opacity:.9; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.2);">${esc(p.gender || '')}${p.type ? ' · ' + esc(p.type) : ''}</div>
+      <div style="margin-top:7px; direction:rtl;">${price}</div>
     </div>
   </div>`;
 }
@@ -199,29 +211,35 @@ function openProductForm(root, product, onSaved) {
 }
 
 // ============================ ORDERS ============================
+function orderCard(o, dateFmt) {
+  const count = (o.order_items || []).reduce((n, i) => n + i.qty, 0);
+  const progress = orderProgress(o);
+  const style = statusStyle(progress.currentKey);
+  return `<div data-open="${o.id}" style="aspect-ratio:1/1; border-radius:16px; background:#fff; border:1px solid #f0e8db; overflow:hidden; position:relative; cursor:pointer; box-shadow:0 2px 8px rgba(60,40,20,.06); animation:nn-rise .35s ease both; display:flex; flex-direction:column;">
+    <div style="height:6px; background:${style.color}; flex-shrink:0;"></div>
+    <div style="flex:1; padding:13px 12px 14px; display:flex; flex-direction:column; justify-content:space-between; direction:rtl;">
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+          <span style="font-size:11px; font-weight:800; color:${style.color}; background:${style.bg}; padding:5px 10px; border-radius:9px;">${progress.label}</span>
+          <span style="font-size:15px; font-weight:800; color:#1B695E;">${fmt(o.total_estimate)}</span>
+        </div>
+        <div style="font-size:17px; font-weight:800; color:#243b37; margin-top:14px; line-height:1.25;">طلب #${o.id}</div>
+        <div style="font-size:12.5px; color:#6a6155; margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(o.profiles?.name || 'عميلة')} · <span dir="ltr">${esc(o.profiles?.phone || '—')}</span></div>
+      </div>
+      <div>
+        <div style="font-size:12px; color:#8a7f6f;">${dateFmt(o.created_at)} · ${count} قطعة</div>
+        <div style="margin-top:8px; font-size:12px; font-weight:700; color:#8a7f6f;">المهام المنجزة: <span style="color:#243b37;">${progress.done}/${progress.total}</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function ordersTab(content, ctx) {
   let orders = await getAllOrders();
   const dateFmt = (iso) => new Date(iso).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' });
 
   const render = () => {
-    content.innerHTML = orders.length ? orders.map((o) => {
-      const count = (o.order_items || []).reduce((n, i) => n + i.qty, 0);
-      const progress = orderProgress(o);
-      return `<div data-open="${o.id}" style="background:#fff; border:1px solid #f0e8db; border-radius:16px; padding:14px 15px; margin-bottom:12px; cursor:pointer; box-shadow:0 2px 8px rgba(60,40,20,.05);">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-          <div>
-            <div style="font-size:14.5px; font-weight:800; color:#243b37;">طلب #${o.id}</div>
-            <div style="font-size:12.5px; color:#8a7f6f; margin-top:2px;">${esc(o.profiles?.name || 'عميلة')} · <span dir="ltr">${esc(o.profiles?.phone || '—')}</span></div>
-            <div style="font-size:12px; color:#a99e8e; margin-top:2px;">${dateFmt(o.created_at)} · ${count} قطعة</div>
-          </div>
-          <div style="text-align:left; flex-shrink:0;">
-            <div style="font-size:12px; font-weight:700; color:#C6544E; background:#fbeeee; padding:5px 11px; border-radius:11px;">${progress.label}</div>
-            <div style="font-size:15px; font-weight:800; color:#1B695E; margin-top:6px;">${fmt(o.total_estimate)}</div>
-          </div>
-        </div>
-        <div style="margin-top:9px; font-size:11.5px; color:#8a7f6f;">المهام المنجزة: ${progress.done} / ${progress.total}</div>
-      </div>`;
-    }).join('') : `<div style="text-align:center; padding:60px 20px; color:#a99e8e;">لا توجد طلبات بعد</div>`;
+    content.innerHTML = orders.length ? `<div class="nn-admin-grid">${orders.map((o) => orderCard(o, dateFmt)).join('')}</div>` : `<div style="text-align:center; padding:60px 20px; color:#a99e8e;">لا توجد طلبات بعد</div>`;
 
     content.querySelectorAll('[data-open]').forEach((el) => el.addEventListener('click', () =>
       openOrderDetail(content, orders.find((o) => o.id === +el.dataset.open), reload)));
@@ -231,7 +249,29 @@ async function ordersTab(content, ctx) {
 }
 
 function openOrderDetail(root, order, onChange) {
-  const steps = [...(order.order_steps || [])];
+  let steps = [...(order.order_steps || [])];
+  const areaIndex = (key) => ORDER_AREAS.findIndex((a) => a.key === key);
+
+  // One-time safety net: if an order is missing default steps for any area (old data / migration not run),
+  // create them on the fly so the checklist always has a row per area.
+  const ensureOrderSteps = async () => {
+    const existing = new Set(steps.map((s) => s.area));
+    const missing = ORDER_AREAS.filter((a) => !existing.has(a.key));
+    if (!missing.length) return;
+    try {
+      const rows = missing.map((a, idx) => ({
+        order_id: order.id, label: a.label, note: a.note, area: a.key,
+        done: false, sort: idx,
+      }));
+      const { data, error } = await supabase.from('order_steps').insert(rows).select();
+      if (error) throw error;
+      steps.push(...(data || []));
+      order.order_steps = steps;
+    } catch (e) {
+      // Non-fatal: render will show 0/0 for missing areas and the migration remains the proper fix.
+      console.error('ensureOrderSteps failed', e);
+    }
+  };
 
   const body = `
     <div style="padding:10px 0 6px; display:flex; justify-content:center; flex-shrink:0;"><div class="nn-sheet-handle" style="width:40px; height:5px; border-radius:3px; background:#ddd0bd;"></div></div>
@@ -247,15 +287,15 @@ function openOrderDetail(root, order, onChange) {
       <a href="${order.profiles?.phone ? 'https://wa.me/' + esc(String(order.profiles.phone).replace(/[^0-9]/g, '')) : waLink('')}" target="_blank" style="display:flex; align-items:center; justify-content:center; gap:8px; height:44px; border-radius:12px; background:#25D366; color:#fff; text-decoration:none; font-size:13.5px; font-weight:700; margin:8px 0 16px;">تواصل مع العميلة عبر واتساب</a>
 
       <div style="font-size:13px; font-weight:800; color:#3a4a45; margin-bottom:8px;">حالة الطلب</div>
-      <div id="derived-status" style="display:inline-block; font-size:12px; font-weight:700; color:#C6544E; background:#fbeeee; padding:6px 12px; border-radius:11px; margin-bottom:14px;"></div>
+      <div id="derived-status" style="display:inline-block; font-size:12px; font-weight:700; color:${statusStyle(orderProgress(order).currentKey).color}; background:${statusStyle(orderProgress(order).currentKey).bg}; padding:6px 12px; border-radius:11px; margin-bottom:14px;">${orderProgress(order).label}</div>
 
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <div style="font-size:13px; font-weight:800; color:#3a4a45;">القطع ومراحلها</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="font-size:15px; font-weight:800; color:#3a4a45;">القطع ومراحلها</div>
         <div style="font-size:11px; color:#a99e8e;">اضغطي على القطعة لإدارة خطواتها</div>
       </div>
       <div id="items"></div>
 
-      <div style="font-size:13px; font-weight:800; color:#3a4a45; margin:18px 0 8px;">مهام الطلب العامة</div>
+      <div style="font-size:13px; font-weight:800; color:#3a4a45; margin:20px 0 8px;">مهام الطلب العامة</div>
       <div id="areas"></div>
     </div>
     <div style="padding:12px 20px calc(16px + env(safe-area-inset-bottom)); border-top:1px solid #efe6d8; background:#FBF6EE; flex-shrink:0;">
@@ -268,33 +308,83 @@ function openOrderDetail(root, order, onChange) {
   const statusEl = overlay.querySelector('#derived-status');
   const itemsEl = overlay.querySelector('#items');
 
+  const allItemsDone = () => (order.order_items || []).every((it) => itemProgress(it).complete);
+
   const renderItems = () => {
     const list = (order.order_items || []).map((it) => {
       const src = it.products?.images?.[0];
       const ip = itemProgress(it);
-      const statusColor = ip.complete ? '#1B695E' : '#C6544E';
-      const statusBg = ip.complete ? '#e8f0ec' : '#fbeeee';
-      const opts = [it.size && `مقاس ${it.size}`, it.note].filter(Boolean).join(' · ');
-      return `<div data-item="${it.id}" style="display:flex; gap:10px; align-items:center; background:#fff; border:1px solid #f0e8db; border-radius:14px; padding:10px; margin-bottom:9px; cursor:pointer; box-shadow:0 2px 6px rgba(60,40,20,.04);">
-        ${src ? `<img src="${esc(src)}" style="width:52px; height:52px; border-radius:11px; object-fit:cover; background:#f3ede2; flex-shrink:0;">` : `<div style="width:52px; height:52px; border-radius:11px; background:#f3ede2; flex-shrink:0;"></div>`}
-        <div style="flex:1; min-width:0;">
-          <div style="font-size:13.5px; font-weight:700; color:#2c3f3b; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(it.name)}</div>
-          ${opts ? `<div style="font-size:11.5px; color:#8a7f6f; margin-top:2px; line-height:1.4;">${esc(opts)} · الكمية: ${it.qty}</div>` : `<div style="font-size:11.5px; color:#8a7f6f; margin-top:2px;">الكمية: ${it.qty}</div>`}
-          <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-            <span style="font-size:11px; font-weight:700; color:${statusColor}; background:${statusBg}; padding:4px 9px; border-radius:9px;">${ip.currentLabel}</span>
-            <span style="font-size:11px; color:#a99e8e;">${ip.done}/${ip.total}</span>
+      const ipStyle = statusStyle(ip.currentKey);
+      const adminNote = it.admin_note || '';
+      const noteIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M8 7h8M8 12h5M8 17h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 10.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m17 3 4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      return `<div data-item="${it.id}" style="background:#fff; border:1px solid #f0e8db; border-radius:18px; padding:14px; cursor:pointer; box-shadow:0 2px 6px rgba(60,40,20,.04); margin-bottom:12px;">
+        <div style="display:flex; gap:13px;">
+          ${src ? `<img src="${esc(src)}" style="width:76px; height:76px; border-radius:15px; object-fit:cover; background:#f3ede2; flex-shrink:0;">` : `<div style="width:76px; height:76px; border-radius:15px; background:#f3ede2; flex-shrink:0;"></div>`}
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+              <div style="font-size:16px; font-weight:800; color:#243b37; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(it.name)}</div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-top:2px;"><path d="m9 6 6 6-6 6" stroke="#a99e8e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px;">
+              ${it.size ? `<span style="font-size:14px; font-weight:800; color:#5a5245; background:#f3ede2; padding:6px 12px; border-radius:10px;">المقاس: ${esc(it.size)}</span>` : ''}
+              <span style="font-size:14px; font-weight:800; color:#243b37; background:#e8f0ec; padding:6px 12px; border-radius:10px;">الكمية: ${it.qty}</span>
+            </div>
           </div>
         </div>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0; margin-inline-start:4px;"><path d="m9 6 6 6-6 6" stroke="#a99e8e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid #f7f2e9; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span style="font-size:13px; font-weight:800; color:${ipStyle.color}; background:${ipStyle.bg}; padding:6px 13px; border-radius:10px;">${ip.currentLabel}</span>
+          <span style="font-size:13px; font-weight:700; color:#8a7f6f;">${ip.done} من ${ip.total} خطوات</span>
+        </div>
+
+        ${it.note ? `<div style="margin-top:12px; background:#FBF6EE; border:1px solid #efe6d8; border-radius:12px; padding:10px 13px;">
+          <div style="font-size:12px; font-weight:800; color:#8a7f6f; margin-bottom:4px;">ملاحظة العميلة</div>
+          <div style="font-size:14px; font-weight:600; color:#5a5245; line-height:1.55;">${esc(it.note)}</div>
+        </div>` : ''}
+
+        <div style="margin-top:12px; background:#FBF6EE; border:1px solid ${adminNote ? '#d5e5df' : '#ece2d3'}; border-radius:12px; padding:11px 13px;" data-note-wrap>
+          <div style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:800; color:#6a6155; margin-bottom:6px;">${noteIcon} ملاحظة إدارية</div>
+          <textarea data-admin-note="${it.id}" placeholder="أضيفي ملاحظة خاصة لهذه القطعة…" style="width:100%; height:64px; border-radius:10px; border:1px solid ${adminNote ? '#d5e5df' : '#ece2d3'}; background:#fff; padding:10px 12px; font-family:'Tajawal',sans-serif; font-size:14.5px; font-weight:${adminNote ? '700' : '500'}; color:${adminNote ? '#243b37' : '#8a7f6f'}; resize:none; line-height:1.55;">${esc(adminNote)}</textarea>
+        </div>
       </div>`;
     }).join('') || `<div style="text-align:center; padding:20px; color:#a99e8e; font-size:13px;">لا توجد قطع</div>`;
     itemsEl.innerHTML = list;
-    itemsEl.querySelectorAll('[data-item]').forEach((el) => el.addEventListener('click', () => {
+
+    itemsEl.querySelectorAll('[data-item]').forEach((el) => el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-admin-note]')) return;
       const it = order.order_items.find((x) => x.id === +el.dataset.item);
       if (!it) return;
       const enriched = { ...it, customer: order.profiles?.name || 'عميلة', phone: order.profiles?.phone || '—' };
       openItemSheet(root, enriched, renderItems);
     }));
+
+    itemsEl.querySelectorAll('[data-admin-note]').forEach((ta) => {
+      let saved = ta.value.trim();
+      let timer = null;
+      const save = async () => {
+        const id = +ta.dataset.adminNote;
+        const val = ta.value.trim();
+        if (val === saved) return;
+        try {
+          await updateOrderItem(id, { admin_note: val });
+          const it = order.order_items.find((x) => x.id === id);
+          if (it) it.admin_note = val;
+          saved = val;
+          ta.style.borderColor = '#1B695E';
+          setTimeout(() => ta.style.borderColor = '', 800);
+        } catch (e) {
+          alert('تعذّر حفظ الملاحظة: ' + e.message);
+        }
+      };
+      ta.addEventListener('click', (e) => e.stopPropagation());
+      ta.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(save, 900);
+      });
+      ta.addEventListener('blur', () => { clearTimeout(timer); save(); });
+      ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); clearTimeout(timer); save(); } });
+    });
   };
   renderItems();
 
@@ -304,25 +394,52 @@ function openOrderDetail(root, order, onChange) {
     return { text: 'بانتظار', bg: '#f3ede2', color: '#8a7f6f' };
   };
 
-  const renderAreas = () => {
+  const syncPreparing = async () => {
+    const preparingArea = ORDER_AREAS.find((a) => a.key === 'preparing');
+    const preparingStep = steps.find((s) => s.area === 'preparing');
+    if (!preparingStep) return;
+    const shouldBeDone = allItemsDone();
+    if (preparingStep.done !== shouldBeDone) {
+      try {
+        await updateOrderStep(preparingStep.id, { done: shouldBeDone });
+        preparingStep.done = shouldBeDone;
+      } catch (e) { /* swallow: will re-attempt on next render */ }
+    }
+  };
+
+  const renderAreas = async () => {
+    await syncPreparing();
     const progress = orderProgress({ ...order, order_steps: steps });
     statusEl.textContent = progress.label;
+    statusEl.style.color = statusStyle(progress.currentKey).color;
+    statusEl.style.background = statusStyle(progress.currentKey).bg;
 
     areasEl.innerHTML = progress.areas.map((a) => {
       const pill = areaPill(a);
+      const isPreparing = a.key === 'preparing';
       const stepRows = a.steps.map((s, idx) => {
         const canUp = idx > 0;
         const canDown = idx < a.steps.length - 1;
+        const isAutoPreparing = s.area === 'preparing';
+        const prepTracker = isPreparing ? ` <span style="font-size:11px; color:#a99e8e; font-weight:500;">(تلقائي حسب القطع)</span>` : '';
         return `<div style="display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f7f2e9;">
-          <input type="checkbox" data-step="${s.id}" ${s.done ? 'checked' : ''} style="width:24px; height:24px; accent-color:#1B695E; flex-shrink:0;">
-          <div style="flex:1; min-width:0;"><div style="font-size:14px; font-weight:${s.done ? 700 : 500}; color:${s.done ? '#243b37' : '#5a5245'};">${esc(s.label)}</div>${s.note ? `<div style="font-size:11.5px; color:#a99e8e; margin-top:1px;">${esc(s.note)}</div>` : ''}</div>
-          <div style="display:flex; gap:4px; flex-shrink:0;">
+          <input type="checkbox" data-step="${s.id}" data-area="${s.area}" ${isAutoPreparing ? 'data-preparing' : ''} ${s.done ? 'checked' : ''} ${isAutoPreparing ? 'disabled' : ''} style="width:24px; height:24px; accent-color:#1B695E; flex-shrink:0;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:14px; font-weight:${s.done ? 700 : 500}; color:${s.done ? '#243b37' : '#5a5245'};">${esc(s.label)}${prepTracker}</div>
+            ${s.note ? `<div style="font-size:11.5px; color:#a99e8e; margin-top:1px;">${esc(s.note)}</div>` : ''}
+          </div>
+          ${isPreparing ? '' : `<div style="display:flex; gap:4px; flex-shrink:0;">
             <button data-up="${s.id}" ${canUp ? '' : 'disabled'} style="width:28px; height:28px; border-radius:7px; background:#fff; border:1px solid #e7ddce; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:${canUp ? 1 : .4};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m18 15-6-6-6 6" stroke="#8a7f6f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button data-down="${s.id}" ${canDown ? '' : 'disabled'} style="width:28px; height:28px; border-radius:7px; background:#fff; border:1px solid #e7ddce; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:${canDown ? 1 : .4};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="#8a7f6f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button data-delstep="${s.id}" style="width:28px; height:28px; border-radius:7px; background:#fff; border:1px solid #f2dede; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M9 7V5h6v2m-8 0 1 12h8l1-12" stroke="#c0a999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          </div>
+          </div>`}
         </div>`;
       }).join('');
+
+      const addInput = isPreparing ? '' : `<div style="display:flex; gap:8px; margin-top:10px;">
+        <input data-addarea="${a.key}" placeholder="＋ أضيفي مهمة…" style="flex:1; height:40px; border-radius:10px; border:1px solid #ece2d3; background:#FBF6EE; padding:0 12px; font-family:'Tajawal',sans-serif; font-size:13px;">
+        <button data-addarea-btn="${a.key}" style="height:40px; padding:0 14px; border-radius:10px; background:#1B695E; color:#fff; border:none; font-size:13px; font-weight:700; cursor:pointer;">إضافة</button>
+      </div>`;
 
       return `<div style="background:#fff; border:1px solid #f0e8db; border-radius:16px; padding:12px 14px; margin-bottom:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -333,22 +450,70 @@ function openOrderDetail(root, order, onChange) {
           </div>
         </div>
         ${stepRows}
-        <div style="display:flex; gap:8px; margin-top:10px;">
-          <input data-addarea="${a.key}" placeholder="＋ أضيفي مهمة…" style="flex:1; height:40px; border-radius:10px; border:1px solid #ece2d3; background:#FBF6EE; padding:0 12px; font-family:'Tajawal',sans-serif; font-size:13px;">
-          <button data-addarea-btn="${a.key}" style="height:40px; padding:0 14px; border-radius:10px; background:#1B695E; color:#fff; border:none; font-size:13px; font-weight:700; cursor:pointer;">إضافة</button>
-        </div>
+        ${addInput}
       </div>`;
     }).join('');
 
-    // Checkbox → update done
+    // ponytail: preparing checkbox reflects item readiness (partial / full).
+    const prepCb = areasEl.querySelector('[data-preparing]');
+    if (prepCb && progress.totalItems > 0) {
+      prepCb.indeterminate = progress.itemsReady > 0 && progress.itemsReady < progress.totalItems;
+    }
+
+    // Checkbox → update done, enforcing sequential order.
     areasEl.querySelectorAll('[data-step]').forEach((cb) => cb.addEventListener('change', async () => {
       const id = +cb.dataset.step;
       const s = steps.find((x) => x.id === id);
+      const idx = areaIndex(s.area);
       cb.disabled = true;
+
+      // Sequential validation.
+      if (cb.checked) {
+        const prevKey = ORDER_AREAS[idx - 1]?.key;
+        if (prevKey) {
+          const prevSteps = steps.filter((x) => x.area === prevKey);
+          if (!prevSteps.every((x) => x.done)) {
+            alert('أكملي المرحلة السابقة أولاً');
+            cb.checked = false; cb.disabled = false; return;
+          }
+        }
+      } else {
+        const nextKey = ORDER_AREAS[idx + 1]?.key;
+        if (nextKey) {
+          const nextSteps = steps.filter((x) => x.area === nextKey);
+          if (nextSteps.some((x) => x.done)) {
+            alert('الغي المرحلة التالية أولاً');
+            cb.checked = true; cb.disabled = false; return;
+          }
+        }
+      }
+
       try {
         await updateOrderStep(id, { done: cb.checked });
         s.done = cb.checked;
+
+        // Cascade confirming to all item confirming steps (both check and uncheck).
+        if (s.area === 'confirming') {
+          await Promise.all((order.order_items || []).flatMap((it) =>
+            (it.order_item_steps || [])
+              .filter((st) => st.key === 'confirming' && st.done !== cb.checked)
+              .map((st) => updateItemStep(st.id, { done: cb.checked }).then(() => { st.done = cb.checked; }))
+          ));
+        }
+
+        // If unchecked, uncheck all later areas.
+        if (!cb.checked) {
+          for (let i = idx + 1; i < ORDER_AREAS.length; i++) {
+            const laterKey = ORDER_AREAS[i].key;
+            const laterSteps = steps.filter((x) => x.area === laterKey && x.done);
+            await Promise.all(laterSteps.map((ls) =>
+              updateOrderStep(ls.id, { done: false }).then(() => { ls.done = false; })
+            ));
+          }
+        }
+
         renderAreas();
+        renderItems();
       } catch (e) {
         cb.checked = !cb.checked;
         cb.disabled = false;
@@ -404,7 +569,7 @@ function openOrderDetail(root, order, onChange) {
       } catch (e) { alert('تعذّر الإضافة: ' + e.message); }
     }));
   };
-  renderAreas();
+  ensureOrderSteps().then(renderAreas);
 
   overlay.querySelector('[data-done]').addEventListener('click', close);
 }
