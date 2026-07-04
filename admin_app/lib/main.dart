@@ -10,22 +10,18 @@ import 'screens/shell.dart';
 // The Supabase URL + anon key are public by design (RLS protects the data; the
 // same anon key already ships in the web app's browser bundle). Defaults let the
 // app run out of the box; `--dart-define` still overrides them if needed.
-const _supabaseUrl = String.fromEnvironment(
-  'SUPABASE_URL',
-  defaultValue: 'https://wkxftfdwdxtzqgmgjdtn.supabase.co',
-);
-const _supabaseAnonKey = String.fromEnvironment(
-  'SUPABASE_ANON_KEY',
-  defaultValue:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndreGZ0ZmR3ZHh0enFnbWdqZHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzY2MDEsImV4cCI6MjA5ODY1MjYwMX0.kEOul8jC4Hppcx3Rad34of8p291DhstKhQTrhKSh6q8',
-);
+const _supabaseUrl = 'https://wkxftfdwdxtzqgmgjdtn.supabase.co';
+const _supabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndreGZ0ZmR3ZHh0enFnbWdqZHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzY2MDEsImV4cCI6MjA5ODY1MjYwMX0.kEOul8jC4Hppcx3Rad34of8p291DhstKhQTrhKSh6q8';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: _supabaseUrl,
     anonKey: _supabaseAnonKey,
-    authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
   );
   runApp(const NanoshAdminApp());
 }
@@ -108,7 +104,9 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     if (_session == null) return const LoginScreen();
     if (_checkingAdmin || _isAdmin == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: teal)));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: teal)),
+      );
     }
     if (_isAdmin == false) return NotAuthorized(onSignOut: _signOut);
     return const AdminShell();
@@ -128,11 +126,20 @@ class NotAuthorized extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('غير مصرح',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
+              const Text(
+                'غير مصرح',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
               const SizedBox(height: 8),
-              const Text('هذا التطبيق مخصّص لإدارة المتجر فقط.',
-                  textAlign: TextAlign.center, style: TextStyle(color: muted)),
+              const Text(
+                'هذا التطبيق مخصّص لإدارة المتجر فقط.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: muted),
+              ),
               const SizedBox(height: 20),
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: teal),
