@@ -1,0 +1,75 @@
+{
+  "store": {
+    "name": "Nanosh – نانوش",
+    "url": "https://bazarak.me/nanosh",
+    "category": "كروشيه يدوي (Handmade Crochet)",
+    "verified": true
+  },
+  "products": [
+    {
+      "id": "0cc51f69-2bb2-4d61-916d-257a86b90444",
+      "name_ar": "كارديجان كروشيه أومبريه مفتوح",
+      "name_en": "Ombre Crochet Open Cardigan",
+      "url": "https://bazarak.me/nanosh/product/0cc51f69-2bb2-4d61-916d-257a86b90444",
+      "price": "1,750 ج.م",
+      "price_egp": 1750,
+      "stock": "1 قطعة فقط متبقية",
+      "description": "كارديجان كروشيه أنيق بتدرج ألوان وتصميم مفتوح وأكمام واسعة. يضيف لمسة عصرية ومريحة لأي إطلالة.",
+      "attributes": {
+        "gender": "حريمي",
+        "type": "كارديجان كروشيه",
+        "material": "خيط مخلوط",
+        "colors": ["بني", "بيج"]
+      },
+      "tags": ["crochet cardigan", "ombre knit", "open front", "bohemian style", "lightweight", "casual wear", "brown beige", "summer coverup"],
+      "images": [
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781698563657.png",
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781698566504_cxzmt.png"
+      ]
+    },
+    {
+      "id": "f57fb01f-6b60-40f8-a0d5-21e418414a55",
+      "name_ar": "كارديجان كروشيه أوف وايت بتصميم شراشيب",
+      "name_en": "Off-White Crochet Shaggy Cardigan",
+      "url": "https://bazarak.me/nanosh/product/f57fb01f-6b60-40f8-a0d5-21e418414a55",
+      "price": "2,500 ج.م",
+      "price_egp": 2500,
+      "stock": "1 قطعة فقط متبقية",
+      "description": "كارديجان كروشيه مريح باللون الأوف وايت يتميز بنسيج مميز بشراشيب. مثالي لإضافة لمسة دافئة وفريدة لإطلالاتك الكاجوال اليومية.",
+      "attributes": {
+        "gender": "حريمي",
+        "type": "كارديجان كروشيه",
+        "material": "خيط مخلوط",
+        "colors": ["أوف وايت", "كريمي"]
+      },
+      "tags": ["crochet cardigan", "shaggy knit", "off-white sweater", "boho chic", "handmade fashion", "casual wear", "women's cardigan", "cozy knit"],
+      "images": [
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781698635155.png",
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781698637573_8met6.jpg",
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781698638799_uwc8y.jpg"
+      ]
+    },
+    {
+      "id": "5ce46a94-5e06-4f1e-bfea-83f5e5cde62a",
+      "name_ar": "كارديجان كروشيه أومبريه برتقالي",
+      "name_en": "Orange Ombre Crochet Cardigan",
+      "url": "https://bazarak.me/nanosh/product/5ce46a94-5e06-4f1e-bfea-83f5e5cde62a",
+      "price": "1,750 ج.م",
+      "price_egp": 1750,
+      "stock": "1 قطعة فقط متبقية",
+      "description": "كارديجان كروشيه خفيف بتصميم مفتوح أنيق وتدرج أومبريه برتقالي جميل. مثالي لإطلالة مريحة وعصرية.",
+      "attributes": {
+        "gender": "حريمي",
+        "type": "كارديجان كروشيه",
+        "material": "خيط قطن",
+        "colors": ["برتقالي", "بيج"]
+      },
+      "tags": ["crochet cardigan", "ombre", "open knit", "summer fashion", "lightweight", "casual", "beachwear", "bohemian", "orange", "beige"],
+      "images": [
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781601731544.png",
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781601734186_21b7f.png",
+        "https://unwxgttihryhyhghiisz.supabase.co/storage/v1/object/public/zumurudah/f83a0107-8e8d-439a-9295-6a81cf1f3767/product_1781601736022_ypwf4.png"
+      ]
+    }
+  ]
+}
