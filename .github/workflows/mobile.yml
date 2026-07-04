@@ -4,7 +4,7 @@ name: Release (Flutter)
 # (unsigned) IPA and upload them onto that release.
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 concurrency:

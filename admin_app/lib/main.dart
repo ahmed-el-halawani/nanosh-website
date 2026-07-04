@@ -7,8 +7,18 @@ import 'data/api.dart';
 import 'screens/login.dart';
 import 'screens/shell.dart';
 
-const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+// The Supabase URL + anon key are public by design (RLS protects the data; the
+// same anon key already ships in the web app's browser bundle). Defaults let the
+// app run out of the box; `--dart-define` still overrides them if needed.
+const _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://wkxftfdwdxtzqgmgjdtn.supabase.co',
+);
+const _supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndreGZ0ZmR3ZHh0enFnbWdqZHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzY2MDEsImV4cCI6MjA5ODY1MjYwMX0.kEOul8jC4Hppcx3Rad34of8p291DhstKhQTrhKSh6q8',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
